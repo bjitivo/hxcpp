@@ -1341,6 +1341,12 @@ class BuildTool
          defines.set("gph","gph");
          defines.set("BINDIR","GPH");
       }
+      else if (defines.exists("pandora")) 
+      {
+        defines.set("toolchain", "pandora");
+        defines.set("pandora", "pandora");
+        defines.set("BINDDIR", "Pandora");
+      }
       else if (defines.exists("mingw") || env.exists("HXCPP_MINGW") )
       {
          defines.set("toolchain","mingw");

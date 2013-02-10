@@ -320,7 +320,7 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
     HX_CSTRING(".dll");
 #elif defined(__APPLE__)
     HX_CSTRING(".dylib");
-#elif defined(ANDROID) || defined(GPH) || defined(WEBOS)  || defined(BLACKBERRY)
+#elif defined(ANDROID) || defined(GPH) || defined(PANDORA) || defined(WEBOS)  || defined(BLACKBERRY)
     HX_CSTRING(".so");
 #else
     HX_CSTRING(".dso");
