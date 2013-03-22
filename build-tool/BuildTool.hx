@@ -1345,7 +1345,7 @@ class BuildTool
       {
         defines.set("toolchain", "pandora");
         defines.set("pandora", "pandora");
-        defines.set("BINDDIR", "Pandora");
+        defines.set("BINDIR", "Pandora");
       }
       else if (defines.exists("mingw") || env.exists("HXCPP_MINGW") )
       {

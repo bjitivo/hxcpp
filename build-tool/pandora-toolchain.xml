@@ -9,20 +9,19 @@
 <include name="gcc-toolchain.xml"/>
 
 <path name="${PANDORA_TOOL}/bin/"/>
-<path name="${PANDORA_TOOL}/arm-angstrom-linux-gnueabi/bin/"/>
+<path name="${PANDORA_TOOL}/arm-none-linux-gnueabi/bin/"/>
 <setenv name="CYGWIN" value="nodosfilewarning"/>
-<set name="PANDORA_SYS" value="${PANDORA_TOOL}/arm-angstrom-linux-gnueabi/"/>
+<set name="PANDORA_SYS" value="${PANDORA_TOOL}/arm-none-linux-gnueabi/"/>
 
-<compiler id="PANDORA" exe="arm-angstrom-linux-gnueabi-g++">
+<compiler id="PANDORA" exe="arm-none-linux-gnueabi-g++">
 	<flag value="-c"/>
 	<flag value="-g" if="debug"/>
 	<flag value="-Os" unless="debug"/>
 	<flag value="-I${HXCPP}/include"/>
 	<flag value="--sysroot=${PANDORA_SYS}"/>
-	<flag value="-I${PANDORA_SYS}/include/c++/4.3.3/"/>
-	<flag value="-I${PANDORA_SYS}/include/c++/4.3.3/arm-angstrom-linux-gnueabi"/>
 	<flag value="-I${PANDORA_TOOL}/include"/>
-	<flag value="-I${PANDORA_SYS}/usr/include/freetype2"/>
+  <flag value="-I${PANDORA_TOOL}/usr/include"/>
+	<flag value="-I${PANDORA_SYS}/usr/include/freetype3"/>
 	<flag value="-I${PANDORA_SYS}/usr/include/SDL"/>
 	<flag value="-DPANDORA"/>
   <include name="common-defines.xml" />
@@ -42,9 +41,9 @@
 	<objdir value="./obj/pandora/Release" unless="debug"/>
 </compiler>
 
-<linker id="exe" exe="arm-angstrom-linux-gnueabi-g++">
+<linker id="exe" exe="arm-none-linux-gnueabi-g++">
 	<ext value=""/>
-	<flag value="--sysroot=${PANDORA_SYS}"/>
+  <flag value="--sysroot=${PANDORA_SYS}/libc"/>
 	<flag value="-mfloat-abi=soft"/>
 	<outflag value="-o"/>
 	<lib name="-ldl"/>
@@ -53,9 +52,9 @@
 	<lib name="-lm"/>
 </linker>
 
-<linker id="dll" exe="arm-angstrom-linux-gnueabi-g++">
+<linker id="dll" exe="arm-none-linux-gnueabi-g++">
 	<flag value="-Wl,--no-undefined"/>
-	<flag value="--sysroot=${PANDORA_SYS}"/>
+  <flag value="--sysroot=${PANDORA_SYS}/libc"/>
 	<flag value="-msoft-float"/>
 	<flag value="-fpic"/>
 	<flag value="-fPIC"/>
