@@ -15,9 +15,14 @@
 #include <windows.h>
 #include <process.h>
 #else
+#include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
 #endif
+
+// Some functions used by AdvancedDebug.cpp
+// Returns the thread number of the calling thread
+int __hxcpp_GetCurrentThreadNumber();
 
 #if defined(HX_WINDOWS)
 
@@ -158,12 +163,15 @@ struct MySemaphore
       WaitForSingleObject(mSemaphore,INFINITE);
       #endif
    }
-   void WaitFor(double inSeconds)
+    // Returns true on success, false on timeout
+   bool WaitFor(double inMilliseconds)
    {
       #ifdef HX_WINRT
-      WaitForSingleObjectEx(mSemaphore,inSeconds*0.001,false);
+      return (WaitForSingleObjectEx
+              (mSemaphore,inMilliseconds,false) != WAIT_TIMEOUT);
       #else
-      WaitForSingleObject(mSemaphore,inSeconds*0.001);
+      return (WaitForSingleObject
+              (mSemaphore,inMilliseconds) != WAIT_TIMEOUT);
       #endif
    }
    void Reset() { ResetEvent(mSemaphore); }
@@ -254,22 +262,44 @@ struct MySemaphore
          pthread_cond_wait( &mCondition, &mMutex.mMutex );
       mSet = false;
    }
-   void WaitFor(double inSeconds)
+   // Returns true if the wait was success, false on timeout.
+   bool WaitFor(double inMilliseconds)
    {
       struct timeval tv;
       gettimeofday(&tv, 0);
 
-      int isec = (int)inSeconds;
-      int usec = (int)((inSeconds-isec)*1000000.0);
+      int isec = ((int)inMilliseconds) / 1000;
+      int usec = (((int)inMilliseconds) % 1000) * 1000;
       timespec spec;
-            spec.tv_nsec = tv.tv_usec + usec * 1000;
+      spec.tv_nsec = (tv.tv_usec + usec) * 1000;
       if (spec.tv_nsec>1000000000)
       {
          spec.tv_nsec-=1000000000;
          isec++;
       }
-      spec.tv_sec = isec;
-      pthread_cond_timedwait( &mCondition, &mMutex.mMutex, &spec );
+      spec.tv_sec = tv.tv_sec + isec;
+
+      AutoLock lock(mMutex);
+      if (mSet) {
+          mSet = false;
+          return true;
+      }
+
+      while (pthread_cond_timedwait
+           ( &mCondition, &mMutex.mMutex, &spec ) != ETIMEDOUT) {
+          if (mSet) {
+              mSet = false;
+              return true;
+          }
+      }
+
+      if (mSet) {
+          mSet = false;
+          return true;
+      }
+      else {
+          return false;
+      }
    }
    void Clean()
    {

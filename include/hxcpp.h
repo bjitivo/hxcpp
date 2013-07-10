@@ -157,7 +157,7 @@ class String;
 // Use an external routine to throw to avoid sjlj overhead on iphone.
 namespace hx { HXCPP_EXTERN_CLASS_ATTRIBUTES Dynamic Throw(Dynamic inDynamic); }
 namespace hx { extern void CriticalError(const String &inError); }
-namespace hx { extern void NullObjectReference(); }
+namespace hx { extern void NullReference(const char *type, bool allowFixup); }
 namespace hx { extern String sNone[]; }
 void __hxcpp_check_overflow(int inVal);
 
