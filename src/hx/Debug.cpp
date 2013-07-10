@@ -1,4 +1,4 @@
-
+#include "hxcpp.h"
 #include <list>
 #include <map>
 #include <vector>
@@ -11,6 +11,10 @@
 #else
 #include <stdio.h>
 #define DBGLOG printf
+#endif
+
+#if _MSC_VER
+#define snprintf _snprintf
 #endif
 
 // These should implement a write memory barrier, but since there are no
