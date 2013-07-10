@@ -453,9 +453,9 @@ public:
    #ifdef HXCPP_DEBUG
    inline OBJ_ *CheckGetPtr() const
    {
-      if (!mPtr) NullReference("Array", true);
+      if (!mPtr) hx::NullReference("Array", true);
       // The handler might have fixed up the null value
-      if (!mPtr) NullReference("Array", false);
+      if (!mPtr) hx::NullReference("Array", false);
       return mPtr;
    }
    #else
