@@ -384,7 +384,7 @@ int __hxcpp_dbg_addClassFunctionBreakpoint(::String className,
                                             ::String functionName);
 void __hxcpp_dbg_deleteAllBreakpoints();
 void __hxcpp_dbg_deleteBreakpoint(int number);
-void __hxcpp_dbg_breakNow();
+void __hxcpp_dbg_breakNow(bool wait);
 void __hxcpp_dbg_continueThreads(int threadNumber, int count);
 void __hxcpp_dbg_stepThread(int threadNumber, int stepType, int stepCount);
 Array<Dynamic> __hxcpp_dbg_getStackVariables(int threadNumber,
@@ -440,7 +440,7 @@ inline int __hxcpp_dbg_addClassFunctionBreakpoint(::String, ::String)
     { return -1; }
 inline void __hxcpp_dbg_deleteAllBreakpoints() { }
 inline void __hxcpp_dbg_deleteBreakpoint(int) { }
-inline void __hxcpp_dbg_breakNow() { }
+inline void __hxcpp_dbg_breakNow(bool) { }
 inline void __hxcpp_dbg_continueThreads(int, int) { }
 inline void __hxcpp_dbg_stepThread(int, int, int) { }
 inline Array<Dynamic> __hxcpp_dbg_getStackVariables(int, int, bool, Dynamic)

@@ -1144,7 +1144,7 @@ public:
         gMutex.Unlock();
     }
 
-    static void BreakNow()
+    static void BreakNow(bool wait)
     {
         gStepType = STEP_INTO;
         gStepCount = 0;
@@ -1156,7 +1156,9 @@ public:
         gShouldCallHandleBreakpoints = true;
 
         // Wait for all threads to be stopped
-        CallStack::WaitForAllThreadsToStop();
+        if (wait) {
+            CallStack::WaitForAllThreadsToStop();
+        }
     }
 
     static void ContinueThreads(int specialThreadNumber, int continueCount)
@@ -1584,9 +1586,9 @@ void __hxcpp_dbg_deleteBreakpoint(int number)
 }
 
 
-void __hxcpp_dbg_breakNow()
+void __hxcpp_dbg_breakNow(bool wait)
 {
-    hx::Breakpoints::BreakNow();    
+    hx::Breakpoints::BreakNow(wait);
 }
 
 
