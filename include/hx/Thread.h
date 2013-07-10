@@ -20,6 +20,10 @@
 #include <sys/time.h>
 #endif
 
+#ifdef RegisterClass
+#undef RegisterClass
+#endif
+
 // Some functions used by AdvancedDebug.cpp
 // Returns the thread number of the calling thread
 int __hxcpp_GetCurrentThreadNumber();
