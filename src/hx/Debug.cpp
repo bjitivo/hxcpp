@@ -344,6 +344,7 @@ public:
             gMap.erase(threadNumber);
             gList.remove(stack);
             delete stack;
+            tlsCallStack = NULL;
         }
 
         gMutex.Unlock();
@@ -448,7 +449,7 @@ public:
     }
 
     // Gets a ThreadInfo for a thread
-    static Dynamic GetThreadInfo(int threadNumber)
+    static Dynamic GetThreadInfo(int threadNumber, bool unsafe)
     {
         if (threadNumber == g_debugThreadNumber) {
             return null();
@@ -466,7 +467,7 @@ public:
             stack = gMap[threadNumber];
         }
 
-        if (stack->mStatus == STATUS_RUNNING) {
+        if ((stack->mStatus == STATUS_RUNNING) && !unsafe) {
             gMutex.Unlock();
             return null();
         }
@@ -506,6 +507,7 @@ public:
 
     static ::Array<Dynamic> GetStackVariables(int threadNumber,
                                               int stackFrameNumber,
+                                              bool unsafe,
                                               Dynamic markThreadNotStopped)
     {
         ::Array<Dynamic> ret = Array_obj<Dynamic>::__new();
@@ -516,7 +518,7 @@ public:
         while (iter != gList.end()) {
             CallStack *stack = *iter++;
             if (stack->mThreadNumber == threadNumber) {
-                if (stack->mStatus == STATUS_RUNNING) {
+                if ((stack->mStatus == STATUS_RUNNING) && !unsafe) {
                     ret->push(markThreadNotStopped);
                     gMutex.Unlock();
                     return ret;
@@ -541,7 +543,8 @@ public:
     }
 
     static Dynamic GetVariableValue(int threadNumber, int stackFrameNumber,
-                                    ::String name, Dynamic markNonexistent,
+                                    ::String name, bool unsafe,
+                                    Dynamic markNonexistent,
                                     Dynamic markThreadNotStopped)
     {
         if (threadNumber == g_debugThreadNumber) {
@@ -560,7 +563,7 @@ public:
             stack = gMap[threadNumber];
         }
 
-        if (stack->mStatus == STATUS_RUNNING) {
+        if ((stack->mStatus == STATUS_RUNNING) && !unsafe) {
             gMutex.Unlock();
             return markThreadNotStopped;
         }
@@ -591,7 +594,7 @@ public:
 
     static Dynamic SetVariableValue(int threadNumber, int stackFrameNumber,
                                     ::String name, Dynamic value,
-                                    Dynamic markNonexistent,
+                                    bool unsafe, Dynamic markNonexistent,
                                     Dynamic markThreadNotStopped)
     {
         if (threadNumber == g_debugThreadNumber) {
@@ -610,7 +613,7 @@ public:
             stack = gMap[threadNumber];
         }
 
-        if (stack->mStatus == STATUS_RUNNING) {
+        if ((stack->mStatus == STATUS_RUNNING) && !unsafe) {
             gMutex.Unlock();
             return markThreadNotStopped;
         }
@@ -1140,6 +1143,7 @@ public:
     static void BreakNow()
     {
         gStepType = STEP_INTO;
+        gStepCount = 0;
         gStepThread = -1;
         // Won't bother with a write memory barrier here, it's harmless to set
         // gShouldCallHandleBreakpoints before the step type and step thread
@@ -1545,9 +1549,9 @@ Array<Dynamic> __hxcpp_dbg_getThreadInfos()
 }
 
 
-Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber)
+Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber, bool unsafe)
 {
-    return hx::CallStack::GetThreadInfo(threadNumber);
+    return hx::CallStack::GetThreadInfo(threadNumber, unsafe);
 }
 
 
@@ -1596,34 +1600,36 @@ void __hxcpp_dbg_stepThread(int threadNumber, int stepType, int stepCount)
 
 
 Array<Dynamic> __hxcpp_dbg_getStackVariables(int threadNumber,
-                                              int stackFrameNumber,
-                                              Dynamic markThreadNotStopped)
+                                             int stackFrameNumber,
+                                             bool unsafe,
+                                             Dynamic markThreadNotStopped)
 {
     return hx::CallStack::GetStackVariables(threadNumber, stackFrameNumber,
-                                            markThreadNotStopped);
+                                            unsafe, markThreadNotStopped);
 }
 
 
 Dynamic __hxcpp_dbg_getStackVariableValue(int threadNumber,
-                                           int stackFrameNumber,
-                                           ::String name,
-                                           Dynamic markNonexistent,
-                                           Dynamic markThreadNotStopped)
+                                          int stackFrameNumber,
+                                          ::String name,
+                                          bool unsafe, Dynamic markNonexistent,
+                                          Dynamic markThreadNotStopped)
 {
     return hx::CallStack::GetVariableValue(threadNumber, stackFrameNumber, 
-                                           name, markNonexistent,
+                                           name, unsafe, markNonexistent,
                                            markThreadNotStopped);
 }
 
 
 Dynamic __hxcpp_dbg_setStackVariableValue(int threadNumber,
-                                           int stackFrameNumber,
-                                           ::String name, Dynamic value,
-                                           Dynamic markNonexistent,
-                                           Dynamic markThreadNotStopped)
+                                          int stackFrameNumber,
+                                          ::String name, Dynamic value,
+                                          bool unsafe, Dynamic markNonexistent,
+                                          Dynamic markThreadNotStopped)
 {
     return hx::CallStack::SetVariableValue(threadNumber, stackFrameNumber,
-                                           name, value, markNonexistent,
+                                           name, value, unsafe,
+                                           markNonexistent,
                                            markThreadNotStopped);
 }
 

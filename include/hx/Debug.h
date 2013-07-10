@@ -378,7 +378,7 @@ int __hxcpp_dbg_getCurrentThreadNumber();
 Array<Dynamic> __hxcpp_dbg_getFiles();
 Array<Dynamic> __hxcpp_dbg_getClasses();
 Array<Dynamic> __hxcpp_dbg_getThreadInfos();
-Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber);
+Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber, bool unsafe);
 int __hxcpp_dbg_addFileLineBreakpoint(::String fileName, int lineNumber);
 int __hxcpp_dbg_addClassFunctionBreakpoint(::String className,
                                             ::String functionName);
@@ -388,19 +388,22 @@ void __hxcpp_dbg_breakNow();
 void __hxcpp_dbg_continueThreads(int threadNumber, int count);
 void __hxcpp_dbg_stepThread(int threadNumber, int stepType, int stepCount);
 Array<Dynamic> __hxcpp_dbg_getStackVariables(int threadNumber,
-                                              int stackFrameNumber,
-                                              Dynamic markThreadNotStopped);
+                                             int stackFrameNumber,
+                                             bool unsafe,
+                                             Dynamic markThreadNotStopped);
 Dynamic __hxcpp_dbg_getStackVariableValue(int threadNumber,
-                                           int stackFrameNumber,
-                                           ::String name,
-                                           Dynamic markNonexistent,
-                                           Dynamic markThreadNotStopped);
+                                          int stackFrameNumber,
+                                          ::String name,
+                                          bool unsafe,
+                                          Dynamic markNonexistent,
+                                          Dynamic markThreadNotStopped);
 
 Dynamic __hxcpp_dbg_setStackVariableValue(int threadNumber,
-                                           int stackFrameNumber,
-                                           ::String name, Dynamic value,
-                                           Dynamic markNonexistent,
-                                           Dynamic markThreadNotStopped);
+                                          int stackFrameNumber,
+                                          ::String name, Dynamic value,
+                                          bool unsafe,
+                                          Dynamic markNonexistent,
+                                          Dynamic markThreadNotStopped);
 void __hxcpp_dbg_setNewParameterFunction(Dynamic function);
 void __hxcpp_dbg_setNewStackFrameFunction(Dynamic function);
 void __hxcpp_dbg_setNewThreadInfoFunction(Dynamic function);
@@ -431,7 +434,7 @@ inline Array<Dynamic> __hxcpp_dbg_getClasses()
     { return Array_obj< ::String>::__new(); }
 inline Array<Dynamic> __hxcpp_dbg_getThreadInfos()
     { return Array_obj< ::Dynamic>::__new(); }
-inline Dynamic __hxcpp_dbg_getThreadInfo(int) { return null(); }
+inline Dynamic __hxcpp_dbg_getThreadInfo(int, bool) { return null(); }
 inline int __hxcpp_dbg_addFileLineBreakpoint(::String, int) { return -1; }
 inline int __hxcpp_dbg_addClassFunctionBreakpoint(::String, ::String)
     { return -1; }
@@ -440,13 +443,13 @@ inline void __hxcpp_dbg_deleteBreakpoint(int) { }
 inline void __hxcpp_dbg_breakNow() { }
 inline void __hxcpp_dbg_continueThreads(int, int) { }
 inline void __hxcpp_dbg_stepThread(int, int, int) { }
- inline Array<Dynamic> __hxcpp_dbg_getStackVariables(int, int, Dynamic)
+inline Array<Dynamic> __hxcpp_dbg_getStackVariables(int, int, bool, Dynamic)
     { return Array_obj< ::String>::__new(); }
-inline Dynamic __hxcpp_dbg_getStackVariableValue(int, int, ::String,
-                                                  Dynamic, Dynamic)
+inline Dynamic __hxcpp_dbg_getStackVariableValue(int, int, ::String, bool,
+                                                 Dynamic, Dynamic)
     { return null(); }
 inline Dynamic __hxcpp_dbg_setStackVariableValue(int, int, ::String, Dynamic,
-                                                  Dynamic, Dynamic) { }
+                                                 bool, Dynamic, Dynamic) { }
 inline void __hxcpp_dbg_setNewParameterFunction(Dynamic) { }
 inline void __hxcpp_dbg_setNewStackFrameFunction(Dynamic) { }
 inline void __hxcpp_dbg_setNewThreadInfoFunction(Dynamic) { }
