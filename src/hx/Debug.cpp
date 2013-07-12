@@ -29,6 +29,10 @@ static void read_memory_barrier()
     // currently unimplemented
 }
 
+// This marker allows class names to exist within the __hxcpp_all_files
+// array
+#define CLASSES_MARKER_WITHIN_FILES_ARRAY "@@@ CLASSES FOLLOW @@@"
+
 
 namespace hx
 {
@@ -37,7 +41,6 @@ static void CriticalErrorHandler(String inErr, bool allowFixup);
 
 // These are emitted elsewhere by the haxe compiler
 extern const char *__hxcpp_all_files[];
-extern const char *__hxcpp_all_classes[];
 
 // This global boolean is set whenever there are any breakpoints (normal or
 // immediate), and can relatively quickly gate debugged threads from making
@@ -1456,6 +1459,9 @@ private:
     static const char *LookupFileName(::String fileName)
     {
         for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
+            if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
+                break;
+            }
             if (!strcmp(*ptr, fileName)) {
                 return *ptr;
             }
@@ -1465,9 +1471,17 @@ private:
 
     static const char *LookupClassName(::String className)
     {
-        for (const char **ptr = hx::__hxcpp_all_classes; *ptr; ptr++) {
-            if (!strcmp(*ptr, className)) {
-                return *ptr;
+        bool atClasses = false;
+        for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
+            if (!atClasses) {
+                if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
+                    atClasses = true;
+                }
+            }
+            else {
+                if (!strcmp(*ptr, className)) {
+                    return *ptr;
+                }
             }
         }
         return NULL;
@@ -1530,6 +1544,9 @@ Array<Dynamic> __hxcpp_dbg_getFiles()
     Array< ::String> ret = Array_obj< ::String>::__new();
 
     for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
+        if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
+            break;
+        }
         ret->push(String(*ptr));
     }
 
@@ -1541,8 +1558,16 @@ Array<Dynamic> __hxcpp_dbg_getClasses()
 {
     Array< ::String> ret = Array_obj< ::String>::__new();
 
-    for (const char **ptr = hx::__hxcpp_all_classes; *ptr; ptr++) {
-        ret->push(String(*ptr));
+    bool atClasses = false;
+    for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
+        if (!atClasses) {
+            if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
+                atClasses = true;
+            }
+        }
+        else {
+            ret->push(String(*ptr));
+        }
     }
 
     return ret;

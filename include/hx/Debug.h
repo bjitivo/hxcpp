@@ -258,13 +258,13 @@ extern volatile bool gShouldCallHandleBreakpoints;
 
 // Stack frames are always pushed if HXCPP_STACK_TRACE is enabled
 #ifdef HXCPP_STACK_LINE
-#define HX_STACK_PUSH(className, functionName, fullName, fileName,      \
-                      lineNumber)                                       \
+#define HX_STACK_FRAME(className, functionName, fullName, fileName,     \
+                       lineNumber)                                      \
     hx::StackFrame __stackframe(className, functionName, fullName,      \
                                 fileName, lineNumber);
 #else
-#define HX_STACK_PUSH(className, functionName, fullName, fileName,      \
-                      lineNumber) \
+#define HX_STACK_FRAME(className, functionName, fullName, fileName,     \
+                       lineNumber) \
     hx::StackFrame __stackframe(className, functionName, fullName, fileName);
 #endif
 
@@ -343,8 +343,8 @@ extern volatile bool gShouldCallHandleBreakpoints;
 
 
 // Define any macros not defined already above
-#ifndef HX_STACK_PUSH
-#define HX_STACK_PUSH(className, functionName, fullName, fileName, lineNumber)
+#ifndef HX_STACK_FRAME
+#define HX_STACK_FRAME(className, functionName, fullName, fileName, lineNumber)
 #endif
 #ifndef HX_STACK_THIS
 #define HX_STACK_THIS(ptr)
@@ -367,6 +367,17 @@ extern volatile bool gShouldCallHandleBreakpoints;
 #ifndef HX_STACK_DO_THROW
 #define HX_STACK_DO_THROW(e) hx::Throw(e)
 #endif
+
+// To support older versions of the haxe compiler that emit HX_STACK_PUSH
+// instead of HX_STACK_FRAME.  If the old haxe compiler is used with this
+// new debugger implementation, className.functionName breakpoints will
+// not work, and stack reporting will be a little weird.  If you want to
+// use debugging, you really should upgrade to a newer haxe compiler.
+
+#undef HX_STACK_PUSH
+#define HX_STACK_PUSH(fullName, fileName, lineNumber)                  \
+    HX_STACK_FRAME("", fullName, fullName, fileName, lineNumber)
+
 
 #ifdef HXCPP_DEBUGGER
 
