@@ -1,6 +1,7 @@
 #ifndef HX_DEBUG_H
 #define HX_DEBUG_H
 
+#include <hxcpp.h>
 #include <hx/Thread.h>
 
 // Set:
@@ -150,7 +151,7 @@ public:
 
     operator Dynamic()
     {
-        return mGetOrSetFunction(true, mCppVar, NULL);
+        return mGetOrSetFunction(true, mCppVar, 0);
     }
     
     StackVariable &operator =(Dynamic &other)
@@ -390,9 +391,9 @@ Array<Dynamic> __hxcpp_dbg_getFiles();
 Array<Dynamic> __hxcpp_dbg_getClasses();
 Array<Dynamic> __hxcpp_dbg_getThreadInfos();
 Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber, bool unsafe);
-int __hxcpp_dbg_addFileLineBreakpoint(::String fileName, int lineNumber);
-int __hxcpp_dbg_addClassFunctionBreakpoint(::String className,
-                                            ::String functionName);
+int __hxcpp_dbg_addFileLineBreakpoint(String fileName, int lineNumber);
+int __hxcpp_dbg_addClassFunctionBreakpoint(String className,
+                                            String functionName);
 void __hxcpp_dbg_deleteAllBreakpoints();
 void __hxcpp_dbg_deleteBreakpoint(int number);
 void __hxcpp_dbg_breakNow(bool wait);
@@ -404,14 +405,14 @@ Array<Dynamic> __hxcpp_dbg_getStackVariables(int threadNumber,
                                              Dynamic markThreadNotStopped);
 Dynamic __hxcpp_dbg_getStackVariableValue(int threadNumber,
                                           int stackFrameNumber,
-                                          ::String name,
+                                          String name,
                                           bool unsafe,
                                           Dynamic markNonexistent,
                                           Dynamic markThreadNotStopped);
 
 Dynamic __hxcpp_dbg_setStackVariableValue(int threadNumber,
                                           int stackFrameNumber,
-                                          ::String name, Dynamic value,
+                                          String name, Dynamic value,
                                           bool unsafe,
                                           Dynamic markNonexistent,
                                           Dynamic markThreadNotStopped);
@@ -440,14 +441,14 @@ inline void __hxcpp_dbg_setEventNotificationHandler(Dynamic)
 inline void __hxcpp_dbg_enableCurrentThreadDebugging(bool) { }
 inline int __hxcpp_dbg_getCurrentThreadNumber() { return -1; }
 inline Array<Dynamic> __hxcpp_dbg_getFiles()
-    { return Array_obj< ::String>::__new(); }
+    { return Array_obj< String>::__new(); }
 inline Array<Dynamic> __hxcpp_dbg_getClasses()
-    { return Array_obj< ::String>::__new(); }
+    { return Array_obj< String>::__new(); }
 inline Array<Dynamic> __hxcpp_dbg_getThreadInfos()
     { return Array_obj< ::Dynamic>::__new(); }
 inline Dynamic __hxcpp_dbg_getThreadInfo(int, bool) { return null(); }
-inline int __hxcpp_dbg_addFileLineBreakpoint(::String, int) { return -1; }
-inline int __hxcpp_dbg_addClassFunctionBreakpoint(::String, ::String)
+inline int __hxcpp_dbg_addFileLineBreakpoint(String, int) { return -1; }
+inline int __hxcpp_dbg_addClassFunctionBreakpoint(String, String)
     { return -1; }
 inline void __hxcpp_dbg_deleteAllBreakpoints() { }
 inline void __hxcpp_dbg_deleteBreakpoint(int) { }
@@ -455,11 +456,11 @@ inline void __hxcpp_dbg_breakNow(bool) { }
 inline void __hxcpp_dbg_continueThreads(int, int) { }
 inline void __hxcpp_dbg_stepThread(int, int, int) { }
 inline Array<Dynamic> __hxcpp_dbg_getStackVariables(int, int, bool, Dynamic)
-    { return Array_obj< ::String>::__new(); }
-inline Dynamic __hxcpp_dbg_getStackVariableValue(int, int, ::String, bool,
+    { return Array_obj< String>::__new(); }
+inline Dynamic __hxcpp_dbg_getStackVariableValue(int, int, String, bool,
                                                  Dynamic, Dynamic)
     { return null(); }
-inline Dynamic __hxcpp_dbg_setStackVariableValue(int, int, ::String, Dynamic,
+inline Dynamic __hxcpp_dbg_setStackVariableValue(int, int, String, Dynamic,
                                                  bool, Dynamic, Dynamic) { }
 inline void __hxcpp_dbg_setNewParameterFunction(Dynamic) { }
 inline void __hxcpp_dbg_setNewStackFrameFunction(Dynamic) { }

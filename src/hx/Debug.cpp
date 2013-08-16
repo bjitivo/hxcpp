@@ -1,4 +1,3 @@
-#include "hxcpp.h"
 #include <list>
 #include <map>
 #include <vector>
@@ -17,8 +16,8 @@
 #define snprintf _snprintf
 #endif
 
-// These should implement a write memory barrier, but since there are no
-// obvious portable implementations, they are currently left unimplemented
+// These should implement write and read memory barrier, but since there are
+// no obvious portable implementations, they are currently left unimplemented
 static void write_memory_barrier()
 {
     // currently unimplemented
@@ -29,10 +28,6 @@ static void read_memory_barrier()
     // currently unimplemented
 }
 
-// This marker allows class names to exist within the __hxcpp_all_files
-// array
-#define CLASSES_MARKER_WITHIN_FILES_ARRAY "@@@ CLASSES FOLLOW @@@"
-
 
 namespace hx
 {
@@ -41,6 +36,7 @@ static void CriticalErrorHandler(String inErr, bool allowFixup);
 
 // These are emitted elsewhere by the haxe compiler
 extern const char *__hxcpp_all_files[];
+extern const char *__hxcpp_all_classes[];
 
 // This global boolean is set whenever there are any breakpoints (normal or
 // immediate), and can relatively quickly gate debugged threads from making
@@ -97,18 +93,6 @@ class Profiler
 {
 public:
 
-    // Do not use the Garbage Collector for managing Profiler objects
-    void *operator new(size_t size)
-    {
-        void *ret = malloc(size);
-        return ret;
-    }
-
-    void operator delete(void *ptr)
-    {
-        free(ptr);
-    }
-
     Profiler(const String &inDumpFile)
         : mT0(0)
     {
@@ -151,7 +135,7 @@ public:
         FILE *out = 0;
         if (mDumpFile.length > 0) {
             out = fopen(mDumpFile.c_str(), "wb");
-            if (out == NULL) {
+            if (!out) {
                 return;
             }
         }
@@ -309,24 +293,12 @@ class CallStack
 {
 public:
 
-    // Do not use the Garbage Collector for managing CallStack objects
-    void *operator new(size_t size)
-    {
-        void *ret = malloc(size);
-        return ret;
-    }
-
-    void operator delete(void *ptr)
-    {
-        free(ptr);
-    }
-
     // Gets the call stack of the calling thread
     static CallStack *GetCallerCallStack()
     {
         CallStack *stack = tlsCallStack;
 
-        if (stack == NULL) {
+        if (!stack) {
             int threadNumber = __hxcpp_GetCurrentThreadNumber();
 
             stack = new CallStack(threadNumber);
@@ -347,11 +319,11 @@ public:
         gMutex.Lock();
 
         CallStack *stack = gMap[threadNumber];
-        if (stack != NULL) {
+        if (!stack) {
             gMap.erase(threadNumber);
             gList.remove(stack);
             delete stack;
-            tlsCallStack = NULL;
+            tlsCallStack = 0;
         }
 
         gMutex.Unlock();
@@ -373,7 +345,7 @@ public:
     static void PushStackFrame(StackFrame *frame)
     {
         CallStack *stack = GetCallerCallStack();
-        if (stack->mProfiler != NULL) {
+        if (stack->mProfiler) {
             stack->mProfiler->Sample(stack);
         }
         stack->mStackFrames.push_back(frame);
@@ -382,7 +354,7 @@ public:
     static void PopStackFrame()
     {
         CallStack *stack = GetCallerCallStack();
-        if (stack->mProfiler != NULL) {
+        if (stack->mProfiler) {
             stack->mProfiler->Sample(stack);
         }
         stack->mStackFrames.pop_back();
@@ -436,7 +408,7 @@ public:
             // Not sure if the following is even possible but the old debugger
             // did it so ...
             char buf[1024];
-            if ((frame->fileName == NULL) || (frame->fileName[0] == '?')) {
+            if (!frame->fileName || (frame->fileName[0] == '?')) {
                 snprintf(buf, sizeof(buf), "%s::%s",
                          frame->className, frame->functionName);
             }
@@ -468,7 +440,7 @@ public:
 
         if (gMap.count(threadNumber) == 0) {
             gMutex.Unlock();
-            return NULL;
+            return null();
         }
         else {
             stack = gMap[threadNumber];
@@ -479,35 +451,41 @@ public:
             return null();
         }
 
-        Dynamic ret = CallStackToThreadInfoLocked(stack);
-
+        // It's safe to release the mutex here, because the stack to be
+        // converted is either for a thread that is not running (and thus
+        // the stack cannot be altered while the conversion is in progress),
+        // or unsafe mode has been invoked
         gMutex.Unlock();
 
-        return ret;
+        return CallStackToThreadInfo(stack);
     }
 
     // Gets a ThreadInfo for each Thread
     static ::Array<Dynamic> GetThreadInfos()
     {
-        ::Array<Dynamic> ret = Array_obj<Dynamic>::__new();
-
         gMutex.Lock();
 
-        std::list<CallStack *>::iterator iter = gList.begin();
-        while (iter != gList.end()) {
-            CallStack *stack = *iter++;
-            if (stack->mThreadNumber != g_debugThreadNumber) {
-                if (stack->mStatus == STATUS_RUNNING) {
-                    ret->push(g_newThreadInfoFunction
-                              (stack->mThreadNumber, stack->mStatus, -1));
-                }
-                else {
-                    ret->push(CallStackToThreadInfoLocked(stack));
-                }
+        // Latch the current thread numbers from the current list of call
+        // stacks.
+        std::list<int> threadNumbers;
+        std::list<CallStack *>::iterator stack_iter = gList.begin();
+        while (stack_iter != gList.end()) {
+            CallStack *stack = *stack_iter++;
+            threadNumbers.push_back(stack->mThreadNumber);
+        }
+        
+        gMutex.Unlock();
+
+        ::Array<Dynamic> ret = Array_obj<Dynamic>::__new();
+
+        // Now get each thread info
+        std::list<int>::iterator thread_iter = threadNumbers.begin();
+        while (thread_iter != threadNumbers.end()) {
+            Dynamic info = GetThreadInfo(*thread_iter++, false);
+            if (info != null()) {
+                ret->push(info);
             }
         }
-
-        gMutex.Unlock();
 
         return ret;
     }
@@ -536,8 +514,8 @@ public:
                 }
                 StackVariable *variable = 
                     stack->mStackFrames[stackFrameNumber]->variables;
-                while (variable != NULL) {
-                    ret->push(::String(variable->mHaxeName));
+                while (variable) {
+                    ret->push(variable->mHaxeName);
                     variable = variable->mNext;
                 }
                 break;
@@ -550,7 +528,7 @@ public:
     }
 
     static Dynamic GetVariableValue(int threadNumber, int stackFrameNumber,
-                                    ::String name, bool unsafe,
+                                    String name, bool unsafe,
                                     Dynamic markNonexistent,
                                     Dynamic markThreadNotStopped)
     {
@@ -589,7 +567,7 @@ public:
 
         StackVariable *sv = stack->mStackFrames[stackFrameNumber]->variables;
 
-        while (sv != NULL) {
+        while (sv) {
             if (!strcmp(sv->mHaxeName, nameToFind)) {
                 return (Dynamic) *sv;
             }
@@ -600,7 +578,7 @@ public:
     }
 
     static Dynamic SetVariableValue(int threadNumber, int stackFrameNumber,
-                                    ::String name, Dynamic value,
+                                    String name, Dynamic value,
                                     bool unsafe, Dynamic markNonexistent,
                                     Dynamic markThreadNotStopped)
     {
@@ -614,7 +592,7 @@ public:
 
         if (gMap.count(threadNumber) == 0) {
             gMutex.Unlock();
-            return NULL;
+            return null();
         }
         else {
             stack = gMap[threadNumber];
@@ -643,7 +621,7 @@ public:
 
         StackVariable *sv = stack->mStackFrames[stackFrameNumber]->variables;
 
-        while (sv != NULL) {
+        while (sv) {
             if (!strcmp(sv->mHaxeName, nameToFind)) {
                 *sv = value;
                 return (Dynamic) *sv;
@@ -703,7 +681,7 @@ public:
         while (i < size) {
             gMutex.Lock();
             CallStack *stack = gMap[threadNumbers[i]];
-            if (stack == NULL) {
+            if (!stack) {
                 // The thread went away while we were working!
                 gMutex.Unlock();
                 i += 1;
@@ -736,7 +714,7 @@ public:
         while (iter != stack->mStackFrames.rend()) {
             StackFrame *frame = *iter++;
             StackCatchable *catchable = frame->catchables;
-            while (catchable != NULL) {
+            while (catchable) {
                 if (catchable->Catches(e)) {
                     return true;
                 }
@@ -751,7 +729,7 @@ public:
     {
         CallStack *stack = GetCallerCallStack();
 
-        if (stack->mProfiler != NULL) {
+        if (stack->mProfiler) {
             delete stack->mProfiler;
         }
 
@@ -762,10 +740,10 @@ public:
     {
         CallStack *stack = GetCallerCallStack();
 
-        if (stack->mProfiler != NULL) {
+        if (stack->mProfiler) {
             stack->mProfiler->DumpStats();
             delete stack->mProfiler;
-            stack->mProfiler = NULL;
+            stack->mProfiler = 0;
         }
     }
 
@@ -810,7 +788,7 @@ public:
     // Wait for someone to call Continue() on this call stack.  Really only
     // the thread that owns this call stack should call Wait().
     void Break(ThreadStatus status, int breakpoint,
-               const ::String *criticalErrorDescription)
+               const String *criticalErrorDescription)
     {
         // If break status is break immediate, then eliminate any residual
         // continue count from the last continue.
@@ -824,7 +802,7 @@ public:
             return;
         }
 
-        this->DoBreak(status, breakpoint, NULL);
+        this->DoBreak(status, breakpoint, 0);
     }
 
     // Continue the thread that is waiting, if it is waiting.  Only the
@@ -871,7 +849,7 @@ public:
             // Not sure if the following is even possible but the old debugger
             // did it so ...
             char buf[1024];
-            if ((frame->fileName == NULL) || (frame->fileName[0] == '?')) {
+            if (!frame->fileName || (frame->fileName[0] == '?')) {
                 snprintf(buf, sizeof(buf), "%s::%s",
                          frame->className, frame->functionName);
             }
@@ -886,7 +864,7 @@ public:
                          frame->fileName);
 #endif
             }
-            mExceptionStack.push_back(::String(buf));
+            mExceptionStack.push_back(String(buf));
         }
     }
 
@@ -911,17 +889,17 @@ private:
 
     CallStack(int threadNumber)
         : mThreadNumber(threadNumber), mCanStop(true), mStatus(STATUS_RUNNING),
-          mBreakpoint(-1), mWaiting(false), mContinueCount(0), mProfiler(NULL)
+          mBreakpoint(-1), mWaiting(false), mContinueCount(0), mProfiler(0)
     {
     }
 
     void DoBreak(ThreadStatus status, int breakpoint,
-                 const ::String *criticalErrorDescription)
+                 const String *criticalErrorDescription)
     {
         // Update status
         mStatus = status;
         mBreakpoint = breakpoint;
-        if (criticalErrorDescription != NULL) {
+        if (criticalErrorDescription) {
             mCriticalErrorDescription = *criticalErrorDescription;
         }
 
@@ -929,11 +907,12 @@ private:
         mCanStop = false;
 
         // Call the handler to announce the status.
-        StackFrame *frame = mStackFrames.back();
+        int stackFrame = mStackFrames.size() - 1;
+        StackFrame *frame = mStackFrames[stackFrame];
         g_eventNotificationHandler
-            (mThreadNumber, THREAD_STOPPED, ::String(frame->className),
-             ::String(frame->functionName), ::String(frame->fileName),
-             frame->lineNumber);
+            (mThreadNumber, THREAD_STOPPED, stackFrame,
+             String(frame->className), String(frame->functionName),
+             String(frame->fileName), frame->lineNumber);
 
         // Wait until the debugger thread sets mWaiting to false and signals
         // the semaphore
@@ -962,7 +941,7 @@ private:
         mCanStop = true;
     }
 
-    static Dynamic CallStackToThreadInfoLocked(CallStack *stack)
+    static Dynamic CallStackToThreadInfo(CallStack *stack)
     {
         Dynamic ret = g_newThreadInfoFunction
             (stack->mThreadNumber, stack->mStatus, stack->mBreakpoint,
@@ -971,17 +950,17 @@ private:
         int size = stack->mStackFrames.size();
         for (int i = 0; i < size; i++) {
             g_addStackFrameToThreadInfoFunction
-                (ret, StackFrameToStackFrameLocked(stack->mStackFrames[i]));
+                (ret, StackFrameToStackFrame(stack->mStackFrames[i]));
         }
         
         return ret;
     }
 
-    static Dynamic StackFrameToStackFrameLocked(StackFrame *frame)
+    static Dynamic StackFrameToStackFrame(StackFrame *frame)
     {
         Dynamic ret = g_newStackFrameFunction
-            (::String(frame->fileName), ::String(frame->lineNumber),
-             ::String(frame->className), ::String(frame->functionName));
+            (String(frame->fileName), String(frame->lineNumber),
+             String(frame->className), String(frame->functionName));
         
         // Don't do parameters for now
         // xxx figure them out later
@@ -993,10 +972,10 @@ private:
     bool mCanStop;
     ThreadStatus mStatus;
     int mBreakpoint;
-    ::String mCriticalErrorDescription;
+    String mCriticalErrorDescription;
     std::vector<StackFrame *> mStackFrames;
     // Updated only when a thrown exception unwinds the stack
-    std::vector< ::String> mExceptionStack;
+    std::vector<String> mExceptionStack;
     int mStepLevel;
     MyMutex mWaitMutex;
     bool mWaiting;
@@ -1020,24 +999,12 @@ class Breakpoints
 {
 public:
 
-    // Do not use the Garbage Collector for managing Breakpoints objects
-    void *operator new(size_t size)
-    {
-        void *ret = malloc(size);
-        return ret;
-    }
-
-    void operator delete(void *ptr)
-    {
-        free(ptr);
-    }
-
-    static int Add(::String inFileName, int lineNumber)
+    static int Add(String inFileName, int lineNumber)
     {
         // Look up the filename constant
         const char *fileName = LookupFileName(inFileName);
 
-        if (fileName == NULL) {
+        if (!fileName) {
             return -1;
         }
         
@@ -1065,12 +1032,12 @@ public:
         return ret;
     }
 
-    static int Add(::String inClassName, ::String functionName)
+    static int Add(String inClassName, String functionName)
     {
         // Look up the class name constant
         const char *className = LookupClassName(inClassName);
 
-        if (className == NULL) {
+        if (!className) {
             return -1;
         }
         
@@ -1224,7 +1191,7 @@ public:
             Breakpoints *breakpoints = tlsBreakpoints;
             // If the current thread has never gotten a reference to
             // breakpoints, get a reference to the current breakpoints
-            if (breakpoints == NULL) {
+            if (!breakpoints) {
                 gMutex.Lock();
                 // Get break points and ref it
                 breakpoints = gBreakpoints;
@@ -1309,37 +1276,25 @@ public:
 
         // Now break, which will wait until the debugger thread continues
         // the thread
-        stack->Break(breakStatus, breakpointNumber, NULL);
+        stack->Break(breakStatus, breakpointNumber, 0);
     }
 
 private:
 
     struct Breakpoint
     {
-        // Do not use the Garbage Collector for managing Breakpoint objects
-        void *operator new[](size_t size)
-        {
-            void *ret = malloc(size);
-            return ret;
-        }
-
-        void operator delete[](void *ptr)
-        {
-            free(ptr);
-        }
-
         int number;
 
         bool isFileLine;
 
         const char *fileOrClassName;
         int lineNumber;
-        ::String functionName;
+        String functionName;
     };
 
     // Creates Breakpoints object with no breakpoints and a zero version
     Breakpoints()
-        : mRefCount(1), mBreakpointCount(0), mBreakpoints(NULL)
+        : mRefCount(1), mBreakpointCount(0), mBreakpoints(0)
     {
     }
 
@@ -1361,7 +1316,7 @@ private:
     
     // Copies breakpoints from toCopy and adds a new class:function breakpoint
     Breakpoints(const Breakpoints *toCopy, int number,
-                const char *className, ::String functionName)
+                const char *className, String functionName)
         : mRefCount(1)
     {
         mBreakpointCount = toCopy->mBreakpointCount + 1;
@@ -1381,7 +1336,7 @@ private:
     {
         mBreakpointCount = toCopy->mBreakpointCount - 1;
         if (mBreakpointCount == 0) {
-            mBreakpoints = NULL;
+            mBreakpoints = 0;
         }
         else {
             mBreakpoints = new Breakpoint[mBreakpointCount];
@@ -1456,35 +1411,24 @@ private:
 
     // Looks up the "interned" version of the name, for faster compares
     // when evaluating breakpoints
-    static const char *LookupFileName(::String fileName)
+    static const char *LookupFileName(String fileName)
     {
         for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
-            if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
-                break;
-            }
             if (!strcmp(*ptr, fileName)) {
                 return *ptr;
             }
         }
-        return NULL;
+        return 0;
     }
 
-    static const char *LookupClassName(::String className)
+    static const char *LookupClassName(String className)
     {
-        bool atClasses = false;
-        for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
-            if (!atClasses) {
-                if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
-                    atClasses = true;
-                }
-            }
-            else {
-                if (!strcmp(*ptr, className)) {
-                    return *ptr;
-                }
+        for (const char **ptr = hx::__hxcpp_all_classes; *ptr; ptr++) {
+            if (!strcmp(*ptr, className)) {
+                return *ptr;
             }
         }
-        return NULL;
+        return 0;
     }
 
 private:
@@ -1544,9 +1488,6 @@ Array<Dynamic> __hxcpp_dbg_getFiles()
     Array< ::String> ret = Array_obj< ::String>::__new();
 
     for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
-        if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
-            break;
-        }
         ret->push(String(*ptr));
     }
 
@@ -1558,16 +1499,8 @@ Array<Dynamic> __hxcpp_dbg_getClasses()
 {
     Array< ::String> ret = Array_obj< ::String>::__new();
 
-    bool atClasses = false;
-    for (const char **ptr = hx::__hxcpp_all_files; *ptr; ptr++) {
-        if (!atClasses) {
-            if (!strcmp(*ptr, CLASSES_MARKER_WITHIN_FILES_ARRAY)) {
-                atClasses = true;
-            }
-        }
-        else {
-            ret->push(String(*ptr));
-        }
+    for (const char **ptr = hx::__hxcpp_all_classes; *ptr; ptr++) {
+        ret->push(String(*ptr));
     }
 
     return ret;
@@ -1586,14 +1519,14 @@ Dynamic __hxcpp_dbg_getThreadInfo(int threadNumber, bool unsafe)
 }
 
 
-int __hxcpp_dbg_addFileLineBreakpoint(::String fileName, int lineNumber)
+int __hxcpp_dbg_addFileLineBreakpoint(String fileName, int lineNumber)
 {
     return hx::Breakpoints::Add(fileName, lineNumber);
 }
 
 
-int __hxcpp_dbg_addClassFunctionBreakpoint(::String className,
-                                            ::String functionName)
+int __hxcpp_dbg_addClassFunctionBreakpoint(String className,
+                                            String functionName)
 {
     return hx::Breakpoints::Add(className, functionName);
 }
@@ -1642,7 +1575,7 @@ Array<Dynamic> __hxcpp_dbg_getStackVariables(int threadNumber,
 
 Dynamic __hxcpp_dbg_getStackVariableValue(int threadNumber,
                                           int stackFrameNumber,
-                                          ::String name,
+                                          String name,
                                           bool unsafe, Dynamic markNonexistent,
                                           Dynamic markThreadNotStopped)
 {
@@ -1654,7 +1587,7 @@ Dynamic __hxcpp_dbg_getStackVariableValue(int threadNumber,
 
 Dynamic __hxcpp_dbg_setStackVariableValue(int threadNumber,
                                           int stackFrameNumber,
-                                          ::String name, Dynamic value,
+                                          String name, Dynamic value,
                                           bool unsafe, Dynamic markNonexistent,
                                           Dynamic markThreadNotStopped)
 {
@@ -1734,7 +1667,7 @@ void __hxcpp_dbg_HandleBreakpoints()
 Dynamic __hxcpp_dbg_checkedThrow(Dynamic toThrow)
 {
     if (!hx::CallStack::CanBeCaught(toThrow)) {
-        hx::CriticalErrorHandler(::String("Uncatchable Throw"), true);
+        hx::CriticalErrorHandler(HX_CSTRING("Uncatchable Throw"), true);
     }
 
     return hx::Throw(toThrow);
@@ -1758,9 +1691,9 @@ hx::StackFrame::StackFrame(const char *inClassName, const char *inFunctionName,
       firstLineNumber(inLineNumber),
 #endif
 #ifdef HXCPP_STACK_VARS
-      variables(NULL),
+      variables(0),
 #endif
-      catchables(NULL)
+      catchables(0)
 {
     hx::CallStack::PushStackFrame(this);
 }
@@ -1851,14 +1784,14 @@ void CriticalError(const String &inErr)
     
 void NullReference(const char *type, bool allowFixup)
 {
-    CriticalErrorHandler(::String("Null ") + ::String(type) +
-                         ::String(" Reference"), allowFixup);
+    CriticalErrorHandler(String("Null ") + String(type) + String(" Reference"),
+                         allowFixup);
 }
     
 } // namespace
 
 
-void __hxcpp_start_profiler(::String inDumpFile)
+void __hxcpp_start_profiler(String inDumpFile)
 {
 #ifdef HXCPP_STACK_TRACE
     hx::CallStack::StartCurrentThreadProfiler(inDumpFile);
@@ -1901,7 +1834,7 @@ void __hxcpp_stack_begin_catch()
 
 Array<String> __hxcpp_get_call_stack(bool inSkipLast)
 {
-    Array< ::String> result = Array_obj< ::String>::__new();
+    Array<String> result = Array_obj<String>::__new();
 
 #ifdef HXCPP_STACK_TRACE
     hx::CallStack::GetCurrentCallStackAsStrings(result, inSkipLast);
@@ -1913,7 +1846,7 @@ Array<String> __hxcpp_get_call_stack(bool inSkipLast)
 
 Array<String> __hxcpp_get_exception_stack()
 {
-    Array< ::String > result = Array_obj< ::String >::__new();
+    Array<String> result = Array_obj<String>::__new();
 
 #ifdef HXCPP_STACK_TRACE
     hx::CallStack::GetCurrentExceptionStackAsStrings(result);
