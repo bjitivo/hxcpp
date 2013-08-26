@@ -1001,7 +1001,8 @@ public:
 
     static int Add(String inFileName, int lineNumber)
     {
-        // Look up the filename constant
+        // Look up the filename, both to ensure that the file exists, and to
+        // get an interned version so that a copy doesn't have to be made
         const char *fileName = LookupFileName(inFileName);
 
         if (!fileName) {
@@ -1034,7 +1035,8 @@ public:
 
     static int Add(String inClassName, String functionName)
     {
-        // Look up the class name constant
+        // Look up the class name, both to ensure that the class exists, and
+        // to get an interned version so that a copy doesn't have to be made
         const char *className = LookupClassName(inClassName);
 
         if (!className) {
@@ -1387,7 +1389,7 @@ private:
         for (int i = 0; i < mBreakpointCount; i++) {
             Breakpoint &breakpoint = mBreakpoints[i];
             if (breakpoint.isFileLine &&
-                (breakpoint.fileOrClassName == fileName) &&
+                !strcmp(breakpoint.fileOrClassName, fileName) &&
                 (breakpoint.lineNumber == lineNumber)) {
                 return breakpoint.number;
             }
@@ -1401,8 +1403,8 @@ private:
         for (int i = 0; i < mBreakpointCount; i++) {
             Breakpoint &breakpoint = mBreakpoints[i];
             if (!breakpoint.isFileLine &&
-                (breakpoint.fileOrClassName == className) &&
-                (!strcmp(breakpoint.functionName.c_str(), functionName))) {
+                !strcmp(breakpoint.fileOrClassName, className) &&
+                !strcmp(breakpoint.functionName.c_str(), functionName)) {
                 return breakpoint.number;
             }
         }
