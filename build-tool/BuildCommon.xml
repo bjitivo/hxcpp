@@ -57,10 +57,10 @@
   <depend name="${HXCPP}/include/null.h"/>
   <depend name="${HXCPP}/include/Class.h"/>
   <depend name="${HXCPP}/include/Enum.h"/>
+  <depend name="${HXCPP}/include/hx/Debug.h"/>
   <depend name="${HXCPP}/include/hx/Object.h"/>
   <depend name="${HXCPP}/include/hx/Operators.h"/>
   <depend name="${HXCPP}/include/hx/Macros.h"/>
-  <depend name="${HXCPP}/include/hx/Thread.h"/>
   <depend name="${HXCPP}/include/hx/GC.h"/>
   <depend name="${HXCPP}/include/hx/CFFI.h"/>
   <depend name="${HXCPP}/include/hx/CFFIAPI.h"/>
@@ -98,6 +98,7 @@
   <depend name="${HXCPP}/include/null.h"/>
   <depend name="${HXCPP}/include/Class.h"/>
   <depend name="${HXCPP}/include/Enum.h"/>
+  <depend name="${HXCPP}/include/hx/Debug.h"/>
   <depend name="${HXCPP}/include/hx/Object.h"/>
   <depend name="${HXCPP}/include/hx/Operators.h"/>
   <depend name="${HXCPP}/include/hx/Macros.h"/>
@@ -135,7 +136,7 @@
   <file name = "src/hx/Object.cpp"/>
   <file name = "src/hx/StdLibs.cpp"/>
   <file name = "src/hx/Debug.cpp"/>
-  <file name = "src/hx/Scriptable.cpp" if="scriptable"/>
+  <file name = "src/hx/Cppia.cpp" if="scriptable"/>
   <file name = "src/hx/Thread.cpp"/>
   <file name = "src/hx/RunLibs.cpp" if="static_link"/>
 

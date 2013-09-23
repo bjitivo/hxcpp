@@ -9,9 +9,13 @@
 //#define DBGLOG(...) { }
 #define DBGLOG printf
 
+
 namespace hx
 {
-
+#if 0
+// Ignore ABC for now
+namespace hx
+{
 
 
 enum Type { nsPublic, nsPrivate, nsNamespace, nsInternal, nsProtected, nsExplicit, nsStaticProtected };
@@ -1299,6 +1303,7 @@ class Object_obj__scriptable : public Object
 
 void ScriptableRegisterClass( String inName, String *inFunctions, hx::ScriptableClassFactory inFactory)
 {
+   printf("ScriptableRegisterClass %s\n", inName.__s);
    if (!sScriptRegistered)
       sScriptRegistered = new ScriptRegisteredMap();
    ScriptRegistered *registered = new ScriptRegistered(inFunctions,inFactory);
@@ -1538,6 +1543,8 @@ void LoadABC(const unsigned char *inBytes, int inLen)
       printf("Error on load : %s\n", d->toString().__s);
    }
 }
+
+#endif
 
 #if 0
 
@@ -2050,13 +2057,10 @@ public:
    const unsigned char *mBytes;
    const unsigned char *mBytesEnd;
 };
-
 #endif
 
-
-
-
 } // end namespace hx
+
 
 #if 0
 void __scriptable_load_neko(String inName)
@@ -2069,9 +2073,11 @@ void __scriptable_load_neko_bytes(Array<unsigned char> inBytes)
 {
    new hx::NekoModule((unsigned char *)inBytes->GetBase(), inBytes->length);
 }
-#endif
 
 void __scriptable_load_abc(Array<unsigned char> inBytes)
 {
    hx::LoadABC(&inBytes[0], inBytes->length);
 }
+#endif
+
+

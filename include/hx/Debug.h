@@ -2,7 +2,11 @@
 #define HX_DEBUG_H
 
 #include <hxcpp.h>
-#include <hx/Thread.h>
+
+// Some functions used by AdvancedDebug.cpp
+// Returns the thread number of the calling thread
+HXCPP_EXTERN_CLASS_ATTRIBUTES
+int __hxcpp_GetCurrentThreadNumber();
 
 // Set:
 // HXCPP_STACK_VARS if stack variables need to be tracked
@@ -26,6 +30,10 @@
 #define HXCPP_STACK_TRACE
 #endif
 
+// Do we care about the debug-breakpoint-lookup-hashes
+#if (defined HXCPP_STACK_LINE) && (defined(HXCPP_DEBUG) || defined(HXCPP_DEBUGGER)) && (!defined(HXCPP_DEBUG_HASHES))
+#define HXCPP_DEBUG_HASHES
+#endif
 
 // Called by the main function when an uncaught exception occurs to dump
 // the stack leading to the exception
@@ -38,6 +46,9 @@ void __hx_dump_stack();
 HXCPP_EXTERN_CLASS_ATTRIBUTES
 void __hxcpp_stack_begin_catch();
 
+// Last chance to throw an exception for null-pointer access
+HXCPP_EXTERN_CLASS_ATTRIBUTES
+void __hxcpp_set_critical_error_handler(Dynamic inHandler);
 
 namespace hx
 {
@@ -73,33 +84,65 @@ class StackArgument;
 class StackVariable;
 class StackCatchable;
 
+void __hxcpp_register_stack_frame(class StackFrame *inFrame);
+
 class StackFrame
 {
 public:
 
     // The constructor automatically adds the StackFrame to the list of
     // stack frames for the current thread
-    StackFrame(const char *className, const char *functionName,
-               const char *fullName, const char *fileName
-#ifdef HXCPP_STACK_LINE
-               , int lineNumber
-#endif
-               );
+    inline StackFrame(const char *inClassName, const char *inFunctionName,
+               #ifdef HXCPP_DEBUG_HASHES
+               int inClassFunctionHash,
+               #endif
+               const char *inFullName, const char *inFileName
+               #ifdef HXCPP_STACK_LINE
+               , int inLineNumber
+               #endif
+               #ifdef HXCPP_DEBUG_HASHES
+               , int inFileLineHash
+               #endif
+               )
+
+       : className(inClassName), functionName(inFunctionName),
+         #ifdef HXCPP_DEBUG_HASHES
+         classFuncHash(inClassFunctionHash),
+         fileLineHash(inFileLineHash),
+         #endif
+         fullName(inFullName), fileName(inFileName),
+         #ifdef HXCPP_STACK_LINE
+         firstLineNumber(inLineNumber),
+         #endif
+         #ifdef HXCPP_STACK_VARS
+         variables(0),
+         #endif
+         catchables(0)
+    {
+       __hxcpp_register_stack_frame(this);
+    }
 
     // The destructor automatically removes the StackFrame from the list of
     // stack frames for the current thread
     ~StackFrame();
 
+    ::String toString();
+
     // These are constant during the lifetime of the stack frame
     const char *className;
     const char *functionName;
-    const char *fullName; // this is className.functionName
+    const char *fullName; // this is className.functionName - used for profiler
     const char *fileName;
     int firstLineNumber;
 
     // Current line number, changes during the lifetime of the stack frame.
     // Only updated if HXCPP_STACK_LINE is defined.
     int lineNumber;
+
+    #ifdef HXCPP_DEBUG_HASHES
+    int fileLineHash;
+    int classFuncHash;
+    #endif
     
     // Function arguments and local variables in reverse order of their
     // declaration.  If a variable name is in here twice, the first version is
@@ -129,7 +172,7 @@ public:
         mGetOrSetFunction = GetOrSetFunction<T>;
         mNext = mHead;
         mHead = this;
-    }
+}
 
     // For StackThis
     template<typename T>
@@ -153,14 +196,14 @@ public:
     {
         return mGetOrSetFunction(true, mCppVar, 0);
     }
-    
+
     StackVariable &operator =(Dynamic &other)
     {
         (void) mGetOrSetFunction(false, mCppVar, &other);
 
         return *this;
     }
-    
+
 protected:
 
 	typedef Dynamic (*GetOrSetFunctionType)(bool, void *, Dynamic *);
@@ -221,30 +264,30 @@ public:
     template<typename T>
     StackCatchable(StackFrame &frame, T * /* dummy required by template*/)
         : mFrame(frame)
-    {
+{
         mNext = frame.catchables;
         frame.catchables = this;
         mTestFunction = TestFunction<T>;
     }
 
     ~StackCatchable()
-    {
+{
         mFrame.catchables = mNext;
     }
 
     bool Catches(Dynamic e) const
-    {
+   {
         return mTestFunction(e);
-    }
+   }
 
 private:
 
-    template<typename T>
+   template<typename T>
     static bool TestFunction(Dynamic e)
-    {
+   {
         return e.IsClass<T>();
-    }
-        
+   }
+
     StackFrame &mFrame;
     bool (*mTestFunction)(Dynamic e);
 };
@@ -257,16 +300,26 @@ extern volatile bool gShouldCallHandleBreakpoints;
 // do anything
 #ifdef HXCPP_STACK_TRACE
 
-// Stack frames are always pushed if HXCPP_STACK_TRACE is enabled
+// Stack frames are always pushed if HXCPP_STACK_TRACE is enabled, hashes only if debugger is
 #ifdef HXCPP_STACK_LINE
-#define HX_STACK_FRAME(className, functionName, fullName, fileName,     \
-                       lineNumber)                                      \
-    hx::StackFrame __stackframe(className, functionName, fullName,      \
-                                fileName, lineNumber);
+
+   #ifdef HXCPP_DEBUG_HASHES
+      #define HX_STACK_FRAME(className, functionName, classFunctionHash, fullName,fileName,     \
+                          lineNumber, fileLineHash ) \
+       hx::StackFrame __stackframe(className, functionName, classFunctionHash, fullName,      \
+                                   fileName, lineNumber, fileLineHash);
+   #else
+      #define HX_STACK_FRAME(className, functionName, classFunctionHash, fullName,fileName,     \
+                          lineNumber, fileLineHash ) \
+       hx::StackFrame __stackframe(className, functionName, fullName,      \
+                                   fileName, lineNumber);
+   #endif
 #else
-#define HX_STACK_FRAME(className, functionName, fullName, fileName,     \
-                       lineNumber) \
+
+   #define HX_STACK_FRAME(className, functionName, classFunctionHash, fullName,fileName,     \
+                       lineNumber, fileLineHash ) \
     hx::StackFrame __stackframe(className, functionName, fullName, fileName);
+
 #endif
 
 // Emitted at the beginning of every instance fuction.  ptr is "this".
@@ -310,7 +363,7 @@ extern volatile bool gShouldCallHandleBreakpoints;
     /* breakpoints are missed */                                        \
     if (hx::gShouldCallHandleBreakpoints) {                             \
         __hxcpp_dbg_HandleBreakpoints();                               \
-    }
+   }
 #else
 #define HX_STACK_LINE(number) __stackframe.lineNumber = number;
 #endif // HXCPP_DEBUGGER
@@ -328,7 +381,7 @@ extern volatile bool gShouldCallHandleBreakpoints;
 
 // Emitted at the beginning of every catch block.  Used to build up the
 // catch stack.
-// Catches are always tracked if HXCPP_STACK_TACE is enabled.
+// Catches are always tracked if HXCPP_STACK_TRACE is enabled.
 #define HX_STACK_BEGIN_CATCH __hxcpp_stack_begin_catch();
 
 // If HXCPP_DEBUGGER is enabled, then a throw is checked to see if it
@@ -345,7 +398,7 @@ extern volatile bool gShouldCallHandleBreakpoints;
 
 // Define any macros not defined already above
 #ifndef HX_STACK_FRAME
-#define HX_STACK_FRAME(className, functionName, fullName, fileName, lineNumber)
+#define HX_STACK_FRAME(className, functionName, classFuncHash, fullName, fileName, lineNumber, fileLineHash )
 #endif
 #ifndef HX_STACK_THIS
 #define HX_STACK_THIS(ptr)
@@ -377,7 +430,7 @@ extern volatile bool gShouldCallHandleBreakpoints;
 
 #undef HX_STACK_PUSH
 #define HX_STACK_PUSH(fullName, fileName, lineNumber)                  \
-    HX_STACK_FRAME("", fullName, fullName, fileName, lineNumber)
+    HX_STACK_FRAME("", fullName, 0, fullName, fileName, lineNumber, 0)
 
 
 #ifdef HXCPP_DEBUGGER
@@ -461,7 +514,8 @@ inline Dynamic __hxcpp_dbg_getStackVariableValue(int, int, String, bool,
                                                  Dynamic, Dynamic)
     { return null(); }
 inline Dynamic __hxcpp_dbg_setStackVariableValue(int, int, String, Dynamic,
-                                                 bool, Dynamic, Dynamic) { }
+                                                 bool, Dynamic, Dynamic)
+    { return null(); }
 inline void __hxcpp_dbg_setNewParameterFunction(Dynamic) { }
 inline void __hxcpp_dbg_setNewStackFrameFunction(Dynamic) { }
 inline void __hxcpp_dbg_setNewThreadInfoFunction(Dynamic) { }

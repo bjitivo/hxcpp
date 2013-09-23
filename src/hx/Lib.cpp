@@ -29,7 +29,7 @@ Module hxLoadLibrary(String inLib) { return LoadLibraryW(inLib.__WCStr()); }
 #endif
 
 void *hxFindSymbol(Module inModule, const char *inSymbol) { return (void *)GetProcAddress(inModule,inSymbol); }
-#elif defined (IPHONE)
+#elif (defined (IPHONE) || defined(EMSCRIPTEN)) && !defined(HXCPP_DLL_IMPORT) && !defined(HXCPP_DLL_EXPORT)
 
 typedef void *Module;
 Module hxLoadLibrary(const String &) { return 0; }
@@ -42,7 +42,7 @@ typedef void *Module;
 Module hxLoadLibrary(String inLib)
 {
    int flags = RTLD_GLOBAL;
-   #ifdef HXCPP_RTLD_LAZY
+   #if defined(HXCPP_RTLD_LAZY) || defined(IPHONE) || defined(EMSCRIPTEN)
    flags |= RTLD_LAZY;
    #else
    flags |= RTLD_NOW;
@@ -54,7 +54,7 @@ Module hxLoadLibrary(String inLib)
       if (result)
          printf("Loaded : %s.\n", inLib.__CStr());
       else
-         printf("Error loading library: %s\n", dlerror());
+         printf("Error loading library: (%s) %s\n", inLib.__CStr(), dlerror());
    }
    return result;
 }
@@ -94,37 +94,37 @@ public:
    Dynamic __run()
    {
       if (mArgCount!=0) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,"extern::cffi", __FILE__, __LINE__,0);
       return ((prim_0)mProc)();
    }
    Dynamic __run(D a)
    {
       if (mArgCount!=1) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_1)mProc)(a.GetPtr());
    }
    Dynamic __run(D a,D b)
    {
       if (mArgCount!=2) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_2)mProc)(a.GetPtr(),b.GetPtr());
    }
    Dynamic __run(D a,D b,D c)
    {
       if (mArgCount!=3) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_3)mProc)(a.GetPtr(),b.GetPtr(),c.GetPtr());
    }
    Dynamic __run(D a,D b,D c,D d)
    {
       if (mArgCount!=4) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_4)mProc)(a.GetPtr(),b.GetPtr(),c.GetPtr(),d.GetPtr());
    }
    Dynamic __run(D a,D b,D c,D d,D e)
    {
       if (mArgCount!=5) throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_5)mProc)(a.GetPtr(),b.GetPtr(),c.GetPtr(),d.GetPtr(),e.GetPtr());
    }
 
@@ -132,7 +132,7 @@ public:
    {
       if (mArgCount!=-1 && mArgCount!=inArgs->length)
          throw HX_INVALID_ARG_COUNT;
-      HX_STACK_FRAME("extern", "cffi", "extern::cffi", __FILE__, __LINE__);
+      HX_STACK_FRAME("extern", "cffi",0,  "extern::cffi", __FILE__, __LINE__,0);
       return ((prim_mult)mProc)( (hx::Object **)inArgs->GetBase(), inArgs->length );
    }
 
@@ -257,7 +257,7 @@ typedef std::map<std::string,void *> RegistrationMap;
 RegistrationMap *sgRegisteredPrims=0;
 
 
-#ifdef IPHONE
+#if (defined(IPHONE) || defined(EMSCRIPTEN)) && !defined(HXCPP_DLL_IMPORT) && !defined(HXCPP_DLL_EXPORT)
 
 Dynamic __loadprim(String inLib, String inPrim,int inArgCount)
 {
@@ -311,16 +311,24 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
    //__android_log_print(ANDROID_LOG_INFO, "loader", "%s: %s", inLib.__CStr(), inPrim.__CStr() );
 #endif
 
-   #ifndef HX_WINRT
+   #ifdef IPHONE
+   gLoadDebug = true;
+   setenv("DYLD_PRINT_APIS","1",true);
+
+   #elif !defined(HX_WINRT)
    gLoadDebug = gLoadDebug || getenv("HXCPP_LOAD_DEBUG");
    #endif
 
    String ext =
 #if defined(_WIN32)
     HX_CSTRING(".dll");
+#elif defined(IPHONEOS)
+    HX_CSTRING(".ios.dylib");
+#elif defined(IPHONESIM)
+    HX_CSTRING(".sim.dylib");
 #elif defined(__APPLE__)
     HX_CSTRING(".dylib");
-#elif defined(ANDROID) || defined(GPH) || defined(PANDORA) || defined(WEBOS)  || defined(BLACKBERRY)
+#elif defined(ANDROID) || defined(GPH) || defined(WEBOS)  || defined(BLACKBERRY) || defined(EMSCRIPTEN)
     HX_CSTRING(".so");
 #else
     HX_CSTRING(".dso");
@@ -346,6 +354,12 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
     HX_CSTRING("BlackBerry");
 #elif defined(RASPBERRYPI)
     HX_CSTRING("RPi");
+#elif defined(EMSCRIPTEN)
+	HX_CSTRING("Emscripten");
+#elif defined(IPHONESIM)
+    HX_CSTRING("IPhoneSim");
+#elif defined(IPHONEOS)
+    HX_CSTRING("IPhoneOs");
 #else
   #ifdef HXCPP_M64
     HX_CSTRING("Linux64");
@@ -363,6 +377,14 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
    Module module = sgLoadedModule[inLib.__s];
    #endif
    bool new_module = module==0;
+
+
+   if (!module && sgRegisteredPrims)
+   {
+      void *registered = (*sgRegisteredPrims)[full_name.__CStr()];
+      if (registered)
+         return registered;
+   }
 
    if (!module && gLoadDebug)
    {
@@ -401,20 +423,35 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
          #endif
       }
       module = hxLoadLibrary(dll_ext);
-	  
-	  #ifdef HX_MACOS
-	  if (module)
-	     break;
-	  
-      String exe_path = HX_CSTRING("@executable_path/") + inLib + ( (pass&1) ? HX_CSTRING(".ndll") : ext );
-      if (gLoadDebug)
-      {
-         printf(" try %s...\n", exe_path.__CStr());
-      }
-      module = hxLoadLibrary(exe_path);
-	   #endif
 
-      #if !defined(ANDROID) && !defined(HX_WINRT)
+      // Try exactly as specified...
+      if (!module)
+      {
+         String dll_ext = pass==0 ? inLib : HX_CSTRING("./") + inLib;
+         if (gLoadDebug)
+         {
+            #ifndef ANDROID
+            printf(" try %s...\n", dll_ext.__CStr());
+            #else
+            __android_log_print(ANDROID_LOG_INFO, "loader", "Try %s", dll_ext.__CStr());
+            #endif
+         }
+         module = hxLoadLibrary(dll_ext);
+      }
+     
+      #ifdef HX_MACOS
+      if (!module)
+      {
+         String exe_path = HX_CSTRING("@executable_path/") + inLib + ( (pass&1) ? HX_CSTRING(".ndll") : ext );
+         if (gLoadDebug)
+         {
+            printf(" try %s...\n", exe_path.__CStr());
+         }
+         module = hxLoadLibrary(exe_path);
+      }
+      #endif
+
+      #if !defined(ANDROID) && !defined(HX_WINRT) && !defined(IPHONE) && !defined(EMSCRIPTEN)
       if (!module)
       {
          String hxcpp = GetEnv("HXCPP");
@@ -451,13 +488,6 @@ void *__hxcpp_get_proc_address(String inLib, String full_name,bool inNdllProc)
          }
       }
       #endif
-   }
-
-   if (!module && sgRegisteredPrims)
-   {
-      void *registered = (*sgRegisteredPrims)[full_name.__CStr()];
-      if (registered)
-         return registered;
    }
 
    if (!module)
@@ -562,3 +592,4 @@ int __hxcpp_register_prim(const char *inName,void *inProc)
    (*sgRegisteredPrims)[inName] = inProc;
    return 0;
 }
+

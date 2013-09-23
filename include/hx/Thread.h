@@ -24,9 +24,7 @@
 #undef RegisterClass
 #endif
 
-// Some functions used by AdvancedDebug.cpp
-// Returns the thread number of the calling thread
-int __hxcpp_GetCurrentThreadNumber();
+
 
 #if defined(HX_WINDOWS)
 
@@ -168,14 +166,12 @@ struct MySemaphore
       #endif
    }
     // Returns true on success, false on timeout
-   bool WaitFor(double inMilliseconds)
+   bool WaitSeconds(double inSeconds)
    {
       #ifdef HX_WINRT
-      return (WaitForSingleObjectEx
-              (mSemaphore,inMilliseconds,false) != WAIT_TIMEOUT);
+      return WaitForSingleObjectEx(mSemaphore,inSeconds*0.001,false) != WAIT_TIMEOUT;
       #else
-      return (WaitForSingleObject
-              (mSemaphore,inMilliseconds) != WAIT_TIMEOUT);
+      return WaitForSingleObject(mSemaphore,inSeconds*0.001) != WAIT_TIMEOUT;
       #endif
    }
    void Reset() { ResetEvent(mSemaphore); }
@@ -267,13 +263,13 @@ struct MySemaphore
       mSet = false;
    }
    // Returns true if the wait was success, false on timeout.
-   bool WaitFor(double inMilliseconds)
+   bool WaitSeconds(double inSeconds)
    {
       struct timeval tv;
       gettimeofday(&tv, 0);
 
-      int isec = ((int)inMilliseconds) / 1000;
-      int usec = (((int)inMilliseconds) % 1000) * 1000;
+      int isec = (int)inSeconds;
+      int usec = (int)((inSeconds-isec)*1000000.0);
       timespec spec;
       spec.tv_nsec = (tv.tv_usec + usec) * 1000;
       if (spec.tv_nsec>1000000000)
