@@ -31,9 +31,17 @@ int __hxcpp_GetCurrentThreadNumber();
 #endif
 
 // Do we care about the debug-breakpoint-lookup-hashes
-#if (defined HXCPP_STACK_LINE) && (defined(HXCPP_DEBUG) || defined(HXCPP_DEBUGGER)) && (!defined(HXCPP_DEBUG_HASHES))
-#define HXCPP_DEBUG_HASHES
-#endif
+// Currently this must be disabled as it is buggy and doesn't work properly.
+// The basic problem is that the file-line hash is only emitted at the
+// beginning of a stack frame, and the hash thus emitted is for the
+// first line of the function.  Subsequent lines do not have a new hash
+// emitted in their HX_STACK_LINE macro.  As a result the test in Debug.cpp
+// that quick-rejects file:line breakpoints rejects all file:line breakpoints
+// except those at the very first line of the function.  This breaks
+// file:line breakpoint functionality.
+// #if (defined HXCPP_STACK_LINE) && (defined(HXCPP_DEBUG) || defined(HXCPP_DEBUGGER)) && (!defined(HXCPP_DEBUG_HASHES))
+// #define HXCPP_DEBUG_HASHES
+// #endif
 
 // Called by the main function when an uncaught exception occurs to dump
 // the stack leading to the exception
@@ -106,17 +114,20 @@ public:
                )
 
        : className(inClassName), functionName(inFunctionName),
-         #ifdef HXCPP_DEBUG_HASHES
+#ifdef HXCPP_DEBUG_HASHES
          classFuncHash(inClassFunctionHash),
          fileLineHash(inFileLineHash),
-         #endif
+#else
+         classFuncHash(0),
+         fileLineHash(0),
+#endif
          fullName(inFullName), fileName(inFileName),
-         #ifdef HXCPP_STACK_LINE
+#ifdef HXCPP_STACK_LINE
          firstLineNumber(inLineNumber),
-         #endif
-         #ifdef HXCPP_STACK_VARS
+#endif
+#ifdef HXCPP_STACK_VARS
          variables(0),
-         #endif
+#endif
          catchables(0)
     {
        __hxcpp_register_stack_frame(this);
@@ -139,10 +150,9 @@ public:
     // Only updated if HXCPP_STACK_LINE is defined.
     int lineNumber;
 
-    #ifdef HXCPP_DEBUG_HASHES
+    // These are only used if HXCPP_DEBUG_HASHES is defined
     int fileLineHash;
     int classFuncHash;
-    #endif
     
     // Function arguments and local variables in reverse order of their
     // declaration.  If a variable name is in here twice, the first version is
